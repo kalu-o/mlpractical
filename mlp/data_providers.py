@@ -133,11 +133,11 @@ class MNISTDataProvider(DataProvider):
         super(MNISTDataProvider, self).__init__(
             inputs, targets, batch_size, max_num_batches, shuffle_order, rng)
 
-    # def next(self):
-    #    """Returns next data batch or raises `StopIteration` if at end."""
-    #    inputs_batch, targets_batch = super(MNISTDataProvider, self).next()
-    #    return inputs_batch, self.to_one_of_k(targets_batch)
-    #
+    def next(self):
+       """Returns next data batch or raises `StopIteration` if at end."""
+       inputs_batch, targets_batch = super(MNISTDataProvider, self).next()
+       return inputs_batch, self.to_one_of_k(targets_batch)
+    
     def __next__(self):
         return self.next()
 
@@ -156,7 +156,9 @@ class MNISTDataProvider(DataProvider):
             to zero except for the column corresponding to the correct class
             which is equal to one.
         """
-        raise NotImplementedError()
+        one_of_k = np.zeros((int_targets.size, self.num_classes))
+        for i, t in enumerate(int_targets): one_of_k[i] [t] = 1 
+        return one_of_k
 
 
 class MetOfficeDataProvider(DataProvider):
@@ -188,19 +190,37 @@ class MetOfficeDataProvider(DataProvider):
             'Data file does not exist at expected path: ' + data_path
         )
         # load raw data from text file
-        # ...
+        raw_data = np.loadtxt(data_path, skiprows = 3)[:, 2:]
         # filter out all missing datapoints and flatten to a vector
-        # ...
+        flatten_data = raw_data.reshape(-1,  )
+        temp = flatten_data != -99.99
+        filtered_data = flatten_data[temp]
         # normalise data to zero mean, unit standard deviation
-        # ...
+        norm_data = (filtered_data - np.mean(filtered_data)) / np.std(filtered_data)
+        #print(norm_data)
         # convert from flat sequence to windowed data
-        # ...
+        windowed_data = self.window(norm_data, True)
         # inputs are first (window_size - 1) entries in windows
-        # inputs = ...
+        inputs = windowed_data[0]
         # targets are last entry in windows
-        # targets = ...
+        targets = windowed_data[1]
+        #print (inputs, targets)
         # initialise base class with inputs and targets arrays
-        # super(MetOfficeDataProvider, self).__init__(
-        #     inputs, targets, batch_size, max_num_batches, shuffle_order, rng)
+        super(MetOfficeDataProvider, self).__init__(
+             inputs, targets, batch_size, max_num_batches, shuffle_order, rng)
+             
+    def window(self, in_data, ovalap = False):
+        inputs = []
+        targets = []
+        if ovalap: step = 1
+        else: step = self.window_size 
+        #print (len(in_data), self.window_size)
+        for i in range(0, len(in_data), ):
+            if self.window_size - 1 + i >= len(in_data): continue
+            inputs.append(in_data[i : self.window_size - 1 + i])
+            targets.append(in_data[self.window_size - 1 + i])
+         
+        return np.array(inputs), np.array(targets)
+                
     def __next__(self):
             return self.next()
